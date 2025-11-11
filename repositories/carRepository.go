@@ -38,3 +38,17 @@ func (r *CarRepository) DeleteCarByID(id uint) error {
 	}
 	return nil
 }
+func (r *CarRepository) GetCarPrice(id uint) (float64, error) {
+	var car models.Car
+	if err := r.DB.First(&car, id).Error; err != nil {
+		return 0, err
+	}
+	return car.Price, nil
+}
+func (r *CarRepository) GetcarModel(id uint) (*models.Car, error) {
+	var car models.Car
+	if err := r.DB.First(&car, id).Error; err != nil {
+		return nil, err
+	}
+	return &car, nil
+}

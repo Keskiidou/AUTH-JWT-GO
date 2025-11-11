@@ -1,9 +1,8 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:latest
     container_name: postgres_auth_service
+    restart: always
     environment:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: root
@@ -12,6 +11,15 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+
+  app:
+    build: .
+    container_name: go_auth_app
+    restart: on-failure
+    depends_on:
+      - postgres
+    ports:
+      - "3000:3000"
 
 volumes:
   postgres_data:

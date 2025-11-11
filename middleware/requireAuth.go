@@ -7,6 +7,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 )
 
@@ -58,7 +59,15 @@ func RequireAuth(userRepo *repositories.UserRepository) gin.HandlerFunc {
 			return
 		}
 
-		user, err := userRepo.GetUserByID(userID)
+		// Convert userID from string to uint
+		userIDInt, err := strconv.ParseUint(userID, 10, 32)
+		if err != nil {
+			c.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
+
+		// Use uint type for userRepo.GetUserByID
+		user, err := userRepo.GetUserByID(uint(userIDInt))
 		if err != nil || user.ID == 0 {
 			c.AbortWithStatus(http.StatusUnauthorized)
 			return

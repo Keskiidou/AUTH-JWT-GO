@@ -85,3 +85,44 @@ func DeleteCar(c *gin.Context, carService *services.CarServices) {
 		"message": "Car deleted successfully",
 	})
 }
+func CarPrice(c *gin.Context, carService *services.CarServices) {
+	// Get the car ID from the URL parameter
+	idParam := c.Param("id")
+	id, err := strconv.ParseUint(idParam, 10, 32)
+	if err != nil {
+
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid car ID"})
+		return
+	}
+
+	price, err := carService.GetPrice(uint(id))
+	if err != nil {
+
+		c.JSON(http.StatusNotFound, gin.H{"error": "Car not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"carId": id,
+		"price": price,
+	})
+}
+func CarModel(c *gin.Context, carService *services.CarServices) {
+	idParam := c.Param("id")
+	id, err := strconv.ParseUint(idParam, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid car ID"})
+		return
+	}
+
+	car, err := carService.CarModel(uint(id))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Car not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"modelName": car.ModelName,
+		"make":      car.Make,
+	})
+}

@@ -37,3 +37,9 @@ func (s *CarServices) GetCarByMake(make string) ([]models.Car, error) {
 func (s *CarServices) DeleteCarByID(id uint) error {
 	return s.carRepo.DeleteCarByID(id)
 }
+func (s *CarServices) GetPrice(id uint) (float64, error) {
+	return s.carRepo.GetCarPrice(id)
+}
+func (s *CarServices) CarModel(id uint) (*models.Car, error) {
+	return s.carRepo.GetcarModel(id)
+}
