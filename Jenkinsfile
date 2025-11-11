@@ -19,7 +19,7 @@ pipeline {
                     echo "Following app logs continuously..."
                     // Keep reading the last 100 lines every 10 seconds, appending to logs.txt
                     while (true) {
-                        bat "docker logs --tail 100 %APP_CONTAINER% >> %LOG_FILE% 2>&1"
+                        bat "docker logs --tail 1 %APP_CONTAINER% >> %LOG_FILE% 2>&1"
                         sleep(time: 10, unit: 'SECONDS')
                     }
                 }
