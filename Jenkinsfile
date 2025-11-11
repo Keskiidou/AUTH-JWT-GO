@@ -3,7 +3,8 @@ pipeline {
 
     environment {
         APP_CONTAINER = "go_auth_app"
-        DB_CONTAINER  = "postgres_auth_service"
+        RELATED_CONTAINERS = "postgres_auth_service" // add more if needed
+        LOG_DIR = "logs"
     }
 
     stages {
@@ -13,50 +14,84 @@ pipeline {
             }
         }
 
-        stage('Massive Log Collection') {
+        stage('Build App') {
             steps {
-                echo "Collecting detailed logs from containers and system for AI analysis..."
-                bat '''
-                mkdir logs
+                echo "Building the Go application..."
+                bat """
+                echo ===== BUILD START =====
+                go build -v -o app.exe .
+                echo ===== BUILD COMPLETE =====
+                """
+            }
+        }
 
-                echo ===== Application Logs =====
-                docker logs %APP_CONTAINER% > logs\\app_logs.txt 2>&1
+        stage('Run Tests') {
+            steps {
+                echo "Running Go unit tests..."
+                bat """
+                echo ===== TEST START =====
+                go test ./... -v > ${LOG_DIR}/test_results.txt 2>&1
+                echo ===== TEST COMPLETE =====
+                """
+                archiveArtifacts artifacts: "${LOG_DIR}/test_results.txt", allowEmptyArchive: true
+            }
+        }
 
-                echo ===== Database Logs =====
-                docker logs %DB_CONTAINER% > logs\\db_logs.txt 2>&1
+        stage('Capture Application Logs') {
+            steps {
+                echo "Capturing logs only from the application container..."
+                bat """
+                mkdir ${LOG_DIR}
+                echo ===== APP LOGS START =====
+                docker logs %APP_CONTAINER% --tail 200 > ${LOG_DIR}/app_logs.txt 2>&1
+                echo ===== APP LOGS COMPLETE =====
+                """
+                archiveArtifacts artifacts: "${LOG_DIR}/app_logs.txt", allowEmptyArchive: true
+            }
+        }
 
-                echo ===== Container Runtime Info =====
-                docker ps -a > logs\\container_status.txt
-                docker inspect %APP_CONTAINER% > logs\\container_inspect.txt
-                docker stats --no-stream > logs\\container_stats.txt
-                docker events --since 1h > logs\\docker_events.txt
+        stage('Capture Related Container Logs') {
+            steps {
+                echo "Capturing logs from related containers..."
+                bat """
+                for %%C in (%RELATED_CONTAINERS%) do (
+                    echo ===== Capturing logs for %%C =====
+                    docker logs %%C --tail 200 > ${LOG_DIR}/%%C_logs.txt 2>&1
+                )
+                """
+                archiveArtifacts artifacts: "${LOG_DIR}/*_logs.txt", allowEmptyArchive: true
+            }
+        }
 
-                echo ===== System Info =====
-                systeminfo > logs\\system_info.txt
-                wmic cpu get loadpercentage > logs\\cpu_usage.txt
-                wmic os get freephysicalmemory > logs\\memory_usage.txt
-                typeperf "\\LogicalDisk(_Total)\\% Free Space" -sc 1 > logs\\disk_usage.txt
+        stage('Capture Resource Stats') {
+            steps {
+                echo "Capturing resource stats (CPU, Memory, Disk usage)..."
+                bat """
+                echo ===== RESOURCE STATS =====
+                docker stats --no-stream --format "table {{.Container}}\t{{.CPUPerc}}\t{{.MemUsage}}" > ${LOG_DIR}/resource_usage.txt
+                echo ===== DISK USAGE =====
+                docker system df > ${LOG_DIR}/disk_usage.txt
+                """
+                archiveArtifacts artifacts: "${LOG_DIR}/resource_usage.txt, ${LOG_DIR}/disk_usage.txt", allowEmptyArchive: true
+            }
+        }
 
-                echo ===== Network Info =====
-                docker network ls > logs\\network_list.txt
-                FOR /F "tokens=*" %%i IN ('docker ps -q') DO docker inspect %%i >> logs\\network_inspect.txt
-                docker exec %APP_CONTAINER% ping -n 3 %DB_CONTAINER% > logs\\network_ping.txt 2>&1
-
-                echo ===== Security / Image Info =====
-                docker images > logs\\image_inventory.txt
-                docker inspect %APP_CONTAINER% | findstr "User" > logs\\container_user.txt
-
-                echo ===== Summary =====
-                echo Logs successfully collected on %DATE% %TIME% > logs\\summary.txt
-                '''
-                archiveArtifacts artifacts: 'logs/**', allowEmptyArchive: true
+        stage('Summarize Logs') {
+            steps {
+                echo "Summarizing captured logs..."
+                bat """
+                echo ===== SUMMARY START =====
+                echo Captured logs:
+                dir ${LOG_DIR}
+                echo ===== SUMMARY END =====
+                """
             }
         }
     }
 
     post {
         always {
-            echo "Pipeline finished successfully. Logs archived for AI analysis. No containers were deleted or modified."
+            echo "Pipeline finished successfully. All logs archived for AI analysis."
         }
     }
 }
