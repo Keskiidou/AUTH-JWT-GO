@@ -3,8 +3,7 @@ pipeline {
 
     environment {
         APP_CONTAINER = "go_auth_app"
-        RELATED_CONTAINERS = "postgres_auth_service" // add more if needed
-        LOG_DIR = "logs"
+        LOG_FILE = "logs.txt"
     }
 
     stages {
@@ -14,84 +13,29 @@ pipeline {
             }
         }
 
-        stage('Build App') {
+        stage('Start Continuous Log Capture') {
             steps {
-                echo "Building the Go application..."
+                echo "Starting continuous log capture from app container..."
+                // Start log capture in the background, append to logs.txt
                 bat """
-                echo ===== BUILD START =====
-                go build -v -o app.exe .
-                echo ===== BUILD COMPLETE =====
+                start /b cmd /c "docker logs -f %APP_CONTAINER% >> %LOG_FILE% 2>&1"
                 """
             }
         }
 
-        stage('Run Tests') {
+        stage('Archive Logs Periodically') {
             steps {
-                echo "Running Go unit tests..."
-                bat """
-                echo ===== TEST START =====
-                go test ./... -v > ${LOG_DIR}/test_results.txt 2>&1
-                echo ===== TEST COMPLETE =====
-                """
-                archiveArtifacts artifacts: "${LOG_DIR}/test_results.txt", allowEmptyArchive: true
-            }
-        }
-
-        stage('Capture Application Logs') {
-            steps {
-                echo "Capturing logs only from the application container..."
-                bat """
-                mkdir ${LOG_DIR}
-                echo ===== APP LOGS START =====
-                docker logs %APP_CONTAINER% --tail 200 > ${LOG_DIR}/app_logs.txt 2>&1
-                echo ===== APP LOGS COMPLETE =====
-                """
-                archiveArtifacts artifacts: "${LOG_DIR}/app_logs.txt", allowEmptyArchive: true
-            }
-        }
-
-        stage('Capture Related Container Logs') {
-            steps {
-                echo "Capturing logs from related containers..."
-                bat """
-                for %%C in (%RELATED_CONTAINERS%) do (
-                    echo ===== Capturing logs for %%C =====
-                    docker logs %%C --tail 200 > ${LOG_DIR}/%%C_logs.txt 2>&1
-                )
-                """
-                archiveArtifacts artifacts: "${LOG_DIR}/*_logs.txt", allowEmptyArchive: true
-            }
-        }
-
-        stage('Capture Resource Stats') {
-            steps {
-                echo "Capturing resource stats (CPU, Memory, Disk usage)..."
-                bat """
-                echo ===== RESOURCE STATS =====
-                docker stats --no-stream --format "table {{.Container}}\t{{.CPUPerc}}\t{{.MemUsage}}" > ${LOG_DIR}/resource_usage.txt
-                echo ===== DISK USAGE =====
-                docker system df > ${LOG_DIR}/disk_usage.txt
-                """
-                archiveArtifacts artifacts: "${LOG_DIR}/resource_usage.txt, ${LOG_DIR}/disk_usage.txt", allowEmptyArchive: true
-            }
-        }
-
-        stage('Summarize Logs') {
-            steps {
-                echo "Summarizing captured logs..."
-                bat """
-                echo ===== SUMMARY START =====
-                echo Captured logs:
-                dir ${LOG_DIR}
-                echo ===== SUMMARY END =====
-                """
+                echo "Archiving logs..."
+                // Wait a bit to let logs accumulate (e.g., 1 min)
+                sleep(time: 60, unit: 'SECONDS')
+                archiveArtifacts artifacts: LOG_FILE, allowEmptyArchive: true
             }
         }
     }
 
     post {
         always {
-            echo "Pipeline finished successfully. All logs archived for AI analysis."
+            echo "Pipeline finished. Container logs continue to be appended in the background."
         }
     }
 }
