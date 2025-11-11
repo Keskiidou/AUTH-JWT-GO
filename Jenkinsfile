@@ -13,29 +13,17 @@ pipeline {
             }
         }
 
-        stage('Start Continuous Log Capture') {
+        stage('Follow App Logs') {
             steps {
-                echo "Starting continuous log capture from app container..."
-                // Start log capture in the background, append to logs.txt
-                bat """
-                start /b cmd /c "docker logs -f %APP_CONTAINER% >> %LOG_FILE% 2>&1"
-                """
+                script {
+                    echo "Following app logs continuously..."
+                    // Keep reading the last 100 lines every 10 seconds, appending to logs.txt
+                    while (true) {
+                        bat "docker logs --tail 100 %APP_CONTAINER% >> %LOG_FILE% 2>&1"
+                        sleep(time: 10, unit: 'SECONDS')
+                    }
+                }
             }
-        }
-
-        stage('Archive Logs Periodically') {
-            steps {
-                echo "Archiving logs..."
-                // Wait a bit to let logs accumulate (e.g., 1 min)
-                sleep(time: 60, unit: 'SECONDS')
-                archiveArtifacts artifacts: LOG_FILE, allowEmptyArchive: true
-            }
-        }
-    }
-
-    post {
-        always {
-            echo "Pipeline finished. Container logs continue to be appended in the background."
         }
     }
 }
