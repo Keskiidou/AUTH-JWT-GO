@@ -1,10 +1,6 @@
 pipeline {
     agent any
 
-    environment {
-        DOCKER_HOST = 'unix:///var/run/docker.sock'
-    }
-
     stages {
         stage('Build Docker Image') {
             steps {
@@ -23,15 +19,21 @@ pipeline {
         stage('Run App') {
             steps {
                 echo "Starting Go app in Docker container..."
-                bat 'docker run -d --name go-app-instance -p 8080:8080 my-go-app:latest'
+                bat '''
+                docker rm -f go-app-instance >nul 2>&1
+                docker run -d --name go-app-instance -p 8080:8080 my-go-app:latest
+                '''
             }
         }
 
         stage('Capture Logs') {
             steps {
                 echo "Fetching logs from container..."
-                bat 'mkdir -p logs'
-                bat 'docker logs go-app-instance > logs/app.log || true'
+                
+                bat '''
+                if not exist logs mkdir logs
+                docker logs go-app-instance > logs\\app.log
+                '''
             }
         }
     }
@@ -41,7 +43,8 @@ pipeline {
             echo "Archiving logs..."
             archiveArtifacts artifacts: 'logs/**/*', allowEmptyArchive: true
             echo "Cleaning up Docker container..."
-            bat 'docker rm -f go-app-instance || true'
+            // Ignore error if container does not exist
+            bat 'docker rm -f go-app-instance >nul 2>&1 || exit 0'
         }
     }
 }
