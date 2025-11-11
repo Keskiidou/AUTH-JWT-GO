@@ -9,29 +9,29 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 echo "Building Docker image for Go app..."
-                sh 'docker build -t my-go-app:latest .'
+                bat 'docker build -t my-go-app:latest .'
             }
         }
 
         stage('Run Tests') {
             steps {
                 echo "Running Go tests inside Docker container..."
-                sh 'docker run --rm my-go-app:latest go test ./... -v'
+                bat 'docker run --rm my-go-app:latest go test ./... -v'
             }
         }
 
         stage('Run App') {
             steps {
                 echo "Starting Go app in Docker container..."
-                sh 'docker run -d --name go-app-instance -p 8080:8080 my-go-app:latest'
+                bat 'docker run -d --name go-app-instance -p 8080:8080 my-go-app:latest'
             }
         }
 
         stage('Capture Logs') {
             steps {
                 echo "Fetching logs from container..."
-                sh 'mkdir -p logs'
-                sh 'docker logs go-app-instance > logs/app.log || true'
+                bat 'mkdir -p logs'
+                bat 'docker logs go-app-instance > logs/app.log || true'
             }
         }
     }
@@ -41,7 +41,7 @@ pipeline {
             echo "Archiving logs..."
             archiveArtifacts artifacts: 'logs/**/*', allowEmptyArchive: true
             echo "Cleaning up Docker container..."
-            sh 'docker rm -f go-app-instance || true'
+            bat 'docker rm -f go-app-instance || true'
         }
     }
 }
